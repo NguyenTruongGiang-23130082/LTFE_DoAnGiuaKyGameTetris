@@ -3,50 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetris Game</title>
+    <title>Tetris</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="game-frame">
-    <div class="game-layout">
-        <div class="sidebar">
-            <h1 class="title">TETRIS</h1>
-            <div class="info-box">
-                <h3>Điểm:</h3>
-                <p class="score">0</p>
-            </div>
-            <button class="btn btn-red">Bắt Đầu Lại</button>
-            <button class="btn btn-dark">Tạm Dừng</button>
-            <div class="info-box controls">
-                <p><b>Điều khiển:</b></p>
-                <p>← → : Di chuyển</p>
-                <p>↑ : Xoay khối</p>
-                <p>↓ : Rơi nhanh</p>
-            </div>
-        </div>
-        <div class="main-board">
-            <div class="play-area" id="playArea"></div>
-            <div class="level-overlay" id="levelOverlay">
-                <h2 class="overlay-title">CẤP ĐỘ</h2>
-                <div class="level-grid">
-                    <button class="btn-level">1</button>
-                    <button class="btn-level">2</button>
-                    <button class="btn-level">3</button>
-                    <button class="btn-level">4</button>
-                    <button class="btn-level">5</button>
-                    <button class="btn-level">6</button>
-                    <button class="btn-level">7</button>
-                    <button class="btn-level">8</button>
-                    <button class="btn-level">9</button>
-                    <button class="btn-level">10</button>
-                </div>
-                <button class="btn-back-level" id="btnBackToStart">← Quay lại</button>
-            </div>
-            <div class="start-overlay" id="startOverlay">
-                <h2 class="overlay-title">TETRIS</h2>
-                <p class="overlay-text">Nhấn nút bên dưới để chơi.</p>
-                <button class="btn btn-start-game" id="btnStartGame">Bắt Đầu</button>
-            </div>
+<div class="game">
+    <div class="sidebar">
+        <h1>TETRIS</h1>
+        <p>Điểm: <span id="score">0</span></p>
+        <p>Cấp độ: <span id="level">1</span></p>
+        <p>Số hàng: <span id="lines">0</span> / 10</p>
+        <button id="start">Bắt đầu</button>
+        <button id="pause">Tạm dừng</button>
+        <p>← → : Di chuyển</p>
+        <p>↑ : Xoay khối</p>
+        <p>↓ : Rơi nhanh</p>
+    </div>
+    <div class="board">
+        <table id="game"></table>
+        <div id="overlay" class="overlay">
+            <h2 id="message">TETRIS</h2>
+            <div id="levelChoices" class="level-choices"></div>
+            <button id="next" hidden>Màn tiếp theo</button>
+            <button id="replay" hidden>Chơi lại màn này</button>
+            <button id="choose" hidden>Chọn màn</button>
         </div>
     </div>
 </div>

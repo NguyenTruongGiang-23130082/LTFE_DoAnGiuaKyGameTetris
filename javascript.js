@@ -1,235 +1,272 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const startOverlay = document.getElementById('startOverlay');
-    const levelOverlay = document.getElementById('levelOverlay');
-    const btnStartGame = document.getElementById('btnStartGame');
-    const btnBackToStart = document.getElementById('btnBackToStart');
-    const btnLevels = document.querySelectorAll('.btn-level');
-    const playArea = document.getElementById('playArea');
-    const scoreElement = document.querySelector('.score');
-    const btnRestart = document.querySelector('.btn-red');
-    const btnPause = document.querySelector('.btn-dark');
-    const width = 15;
-    const height = 20;
-    let squares = [];
-    let timerId;
-    let score = 0;
-    let currentPosition = 4;
-    let currentRotation = 0;
-    let isGameOver = false;
-    let isPaused = false;
-    let currentSpeed = 800;
-    const lTetromino = [
-        [1, width+1, width*2+1, 2],
-        [width, width+1, width+2, width*2+2],
-        [1, width+1, width*2+1, width*2],
-        [width, width*2, width*2+1, width*2+2]
-    ];
-    const zTetromino = [
-        [width*2, width*2+1, width+1, width+2],
-        [0, width, width+1, width*2+1],
-        [width*2, width*2+1, width+1, width+2],
-        [0, width, width+1, width*2+1]
-    ];
-    const tTetromino = [
-        [1, width, width+1, width+2],
-        [1, width+1, width+2, width*2+1],
-        [width, width+1, width+2, width*2+1],
-        [1, width, width+1, width*2+1]
-    ];
-    const oTetromino = [
-        [0, 1, width, width+1],
-        [0, 1, width, width+1],
-        [0, 1, width, width+1],
-        [0, 1, width, width+1]
-    ];
-    const iTetromino = [
-        [1, width+1, width*2+1, width*3+1],
-        [width, width+1, width+2, width+3],
-        [1, width+1, width*2+1, width*3+1],
-        [width, width+1, width+2, width+3]
-    ];
-    const theTetrominoes = [lTetromino, zTetromino, tTetromino, oTetromino, iTetromino];
-    const colors = ['#e67e22', '#e74c3c', '#9b59b6', '#f1c40f', '#00ffd5'];
-    let random = 0;
-    let current = [];
-    function draw() {
-        current.forEach(index => {
-            if(squares[currentPosition + index]) {
-                squares[currentPosition + index].classList.add('tetromino');
-                squares[currentPosition + index].style.backgroundColor = colors[random];
-            }
-        });
-    }
-    function undraw() {
-        current.forEach(index => {
-            if(squares[currentPosition + index]) {
-                squares[currentPosition + index].classList.remove('tetromino');
-                squares[currentPosition + index].style.backgroundColor = '';
-            }
-        });
-    }
-    function control(e) {
-        if([37, 38, 39, 40].indexOf(e.keyCode) > -1) {
-            e.preventDefault();
+const col = 10;
+const row = 20;
+const game = document.getElementById("game");
+const scoreText = document.getElementById("score");
+const levelText = document.getElementById("level");
+const linesText = document.getElementById("lines");
+const overlay = document.getElementById("overlay");
+const message = document.getElementById("message");
+const levelChoices = document.getElementById("levelChoices");
+let obstacles = [];
+let board = [];
+let piece = [];
+let shapeIndex = 0;
+let rotation = 0;
+let score = 0;
+let level = 1;
+let lines = 0;
+let timer = null;
+let paused = false;
+let running = false;
+const shapes = [
+    { name: "I", cells: [[0,1],[1,1],[2,1],[3,1]] },
+    { name: "J", cells: [[0,0],[0,1],[1,1],[2,1]] },
+    { name: "L", cells: [[2,0],[0,1],[1,1],[2,1]] },
+    { name: "O", cells: [[0,0],[1,0],[0,1],[1,1]] },
+    { name: "T", cells: [[1,0],[0,1],[1,1],[2,1]] },
+    { name: "S", cells: [[1,0],[2,0],[0,1],[1,1]] },
+    { name: "Z", cells: [[0,0],[1,0],[1,1],[2,1]] }
+];
+function initGame() {
+    game.innerHTML = "";
+    board = [];
+    for (let i = 0; i < row; i++) {
+        const tr = document.createElement("tr");
+        board[i] = [];
+        for (let j = 0; j < col; j++) {
+            const td = document.createElement("td");
+            td.id = "cell_" + i + "_" + j;
+            td.classList.add("cell");
+            tr.appendChild(td);
+            board[i][j] = "";
         }
-        if (isPaused || isGameOver) return;
-        if(e.keyCode === 37) {
-            moveLeft();
-        } else if (e.keyCode === 38) {
-            rotate();
-        } else if (e.keyCode === 39) {
-            moveRight();
-        } else if (e.keyCode === 40) {
-            moveDown();
+        game.appendChild(tr);
+    }
+}
+function initObstacles() {
+    obstacles = [];
+    if (level !== 2) return;
+    while (obstacles.length < 4) {
+        const x = Math.floor(Math.random() * col);
+        const y = Math.floor(Math.random() * 6) + 14;
+        if (!obstacles.some(o => o.x === x && o.y === y)) {
+            obstacles.push({ x, y });
         }
     }
-    document.addEventListener('keydown', control);
-    function moveDown() {
-        if(isPaused || isGameOver) return;
-        undraw();
-        if(!current.some(index => {
-            const nextPos = currentPosition + index + width;
-            return nextPos >= width * height || (squares[nextPos] && squares[nextPos].classList.contains('taken'));
-        })) {
-            currentPosition += width;
-        } else {
-            draw(); 
-            freeze();
+}
+function initPiece() {
+    shapeIndex = Math.floor(Math.random() * shapes.length);
+    rotation = 0;
+    piece = shapes[shapeIndex].cells.map(([x, y]) => ({
+        x: x+3 ,
+        y: y
+    }));
+    if (!canMove(0, 0, piece)) {
+        endGame();
+    }
+}
+function render() {
+    for (let y = 0; y < row; y++) {
+        for (let x = 0; x < col; x++) {
+            const td = document.getElementById("cell_" + y + "_" + x);
+            td.className = "cell";
+            if (board[y][x] !== "") {
+                td.classList.add(board[y][x]);
+            }
+        }
+    }
+    for (const cell of piece) {
+        if (cell.y >= 0 && cell.y < row &&
+            cell.x >= 0 && cell.x < col) {
+            const td = document.getElementById(
+                "cell_" + cell.y + "_" + cell.x
+            );
+            td.classList.add(shapes[shapeIndex].name);
+        }
+    }
+    for (const obstacle of obstacles) {
+        const td = document.getElementById(
+            "cell_" + obstacle.y + "_" + obstacle.x
+        );
+        td.classList.add("obstacle");
+        td.textContent = "";
+    }
+}
+function canMove(dx, dy, newPiece = piece) {
+    return newPiece.every(cell => {
+        const x = cell.x + dx;
+        const y = cell.y + dy;
+        return x >= 0 && x < col &&
+            y >= 0 && y < row &&
+            !board[y][x] &&
+            !obstacles.some(o => o.x === x && o.y === y);
+    });
+}
+function move(dx, dy) {
+    if (!running || paused) return;
+    if (canMove(dx, dy)) {
+        piece = piece.map(cell => ({
+            x: cell.x + dx,
+            y: cell.y + dy
+        }));
+        render();
+    } else if (dy === 1) {
+        lockPiece();
+    }
+}
+function lockPiece() {
+    for (const cell of piece) {
+        if (cell.y < 0) {
+            endGame();
             return;
         }
-        draw();
+        board[cell.y][cell.x] = shapes[shapeIndex].name;
     }
-    function freeze() {
-        current.forEach(index => {
-            if(squares[currentPosition + index]) {
-                squares[currentPosition + index].classList.add('taken');
-            }
-        });
-        addScore();
-        random = Math.floor(Math.random() * theTetrominoes.length);
-        current = theTetrominoes[random][currentRotation];
-        currentPosition = 4;
-        gameOver();
-        if(!isGameOver) {
-            draw();
+    clearLines();
+    if (!running) return;
+    initPiece();
+    if (running) {
+        render();
+    }
+}
+function clearLines() {
+    let cleared = 0;
+    for (let y = row - 1; y >= 0; y--) {
+        if (board[y].every(cell => cell !== "")) {
+            board.splice(y, 1);
+            board.unshift(Array(col).fill(""));
+            obstacles.forEach(obstacle => {
+                if (obstacle.y < y) {
+                    obstacle.y++;
+                }
+            });
+            cleared++;
+            y++;
         }
     }
-    function moveLeft() {
-        undraw();
-        const isAtLeftEdge = current.some(index => (currentPosition + index) % width === 0);
-        if(!isAtLeftEdge) currentPosition -= 1;
-        if(current.some(index => squares[currentPosition + index] && squares[currentPosition + index].classList.contains('taken'))) {
-            currentPosition += 1;
-        }
-        draw();
-    }
-    function moveRight() {
-        undraw();
-        const isAtRightEdge = current.some(index => (currentPosition + index) % width === width - 1);
-        if(!isAtRightEdge) currentPosition += 1;
-        if(current.some(index => squares[currentPosition + index] && squares[currentPosition + index].classList.contains('taken'))) {
-            currentPosition -= 1;
-        }
-        draw();
-    }
-    function rotate() {
-        undraw();
-        let nextRotation = currentRotation + 1;
-        if(nextRotation === current.length) nextRotation = 0;
-        const nextTetromino = theTetrominoes[random][nextRotation];
-        const isAtRightEdge = nextTetromino.some(index => (currentPosition + index) % width === width - 1);
-        const isAtLeftEdge = nextTetromino.some(index => (currentPosition + index) % width === 0);
-        if(!(isAtLeftEdge && isAtRightEdge) && !nextTetromino.some(index => squares[currentPosition + index] && squares[currentPosition + index].classList.contains('taken'))) {
-            currentRotation = nextRotation;
-            current = nextTetromino;
-        }
-        draw();
-    }
-    function addScore() {
-        for (let i = 0; i < width * height; i += width) {
-            const row = [];
-            for (let j = 0; j < width; j++) {
-                row.push(i + j);
-            }
-            if(row.every(index => squares[index] && squares[index].classList.contains('taken'))) {
-                score += 10;
-                scoreElement.innerHTML = score;
-                row.forEach(index => {
-                    squares[index].classList.remove('taken');
-                    squares[index].classList.remove('tetromino');
-                    squares[index].style.backgroundColor = '';
-                });
-                const squaresRemoved = squares.splice(i, width);
-                squares = squaresRemoved.concat(squares);
-                squares.forEach(cell => playArea.appendChild(cell));
-            }
+    if (cleared > 0) {
+        lines += cleared;
+        score += cleared * 10;
+        scoreText.textContent = score;
+        linesText.textContent = lines;
+        if (lines >= 10) {
+            completeLevel();
         }
     }
-    function gameOver() {
-        if(current.some(index => squares[currentPosition + index] && squares[currentPosition + index].classList.contains('taken'))) {
-            scoreElement.innerHTML = score + ' - HẾT';
-            clearInterval(timerId);
-            isGameOver = true;
-        }
+}
+function rotate() {
+    if (!running || paused || shapeIndex === 3) return;
+    const minX = Math.min(...piece.map(cell => cell.x));
+    const minY = Math.min(...piece.map(cell => cell.y));
+    const rotated = piece.map(cell => ({
+        x: minX + (cell.y - minY),
+        y: minY + (minX + 2 - cell.x)
+    }));
+    if (canMove(0, 0, rotated)) {
+        piece = rotated;
+        rotation++;
+        render();
     }
-    function startGame(level) {
-        playArea.innerHTML = '';
-        squares = Array.from({length: width * height}, () => {
-            const div = document.createElement('div');
-            playArea.appendChild(div);
-            return div;
-        });
-        score = 0;
-        scoreElement.innerHTML = score;
-        isGameOver = false;
-        isPaused = false;
-        btnPause.innerText = "Tạm Dừng";
-        clearInterval(timerId);
-        currentSpeed = 800;
-        currentPosition = 4;
-        currentRotation = 0;
-        random = Math.floor(Math.random() * theTetrominoes.length);
-        current = theTetrominoes[random][currentRotation];
-        draw();
-        timerId = setInterval(moveDown, currentSpeed);
-    }
-    btnStartGame.addEventListener('click', () => {
-        startOverlay.style.display = 'none';
-        levelOverlay.style.display = 'flex';
+}
+function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+        move(0, 1);
+    }, 800);
+}
+function startGame(selectedLevel, resetScore = false) {
+    clearInterval(timer);
+    if (resetScore) score = 0;
+    level = selectedLevel;
+    lines = 0;
+    running = true;
+    paused = false;
+    scoreText.textContent = score;
+    levelText.textContent = level;
+    linesText.textContent = lines;
+    overlay.style.display = "none";
+    initGame();
+    initObstacles();
+    initPiece();
+    render();
+    if (running) startTimer();
+}
+function completeLevel() {
+    running = false;
+    clearInterval(timer);
+    overlay.style.display = "flex";
+    levelChoices.style.display = "none";
+    message.textContent = "BẠN ĐÃ THẮNG MÀN " + level + "!";
+    document.getElementById("next").hidden = level >= 10;
+    document.getElementById("replay").hidden = false;
+    document.getElementById("choose").hidden = false;
+    document.getElementById("next").textContent = "Màn tiếp theo";
+    document.getElementById("replay").textContent = "Chơi lại màn này";
+    document.getElementById("choose").textContent = "Chọn màn";
+}
+function endGame() {
+    running = false;
+    clearInterval(timer);
+    overlay.style.display = "flex";
+    levelChoices.style.display = "none";
+    message.textContent = "GAME OVER";
+    document.getElementById("next").hidden = true;
+    document.getElementById("replay").hidden = false;
+    document.getElementById("choose").hidden = false;
+}
+for (let i = 1; i <= 10; i++) {
+    const button = document.createElement("button");
+    button.textContent = i;
+    button.addEventListener("click", () => {
+        startGame(i, true);
     });
-    btnBackToStart.addEventListener('click', () => {
-        levelOverlay.style.display = 'none';
-        startOverlay.style.display = 'flex';
-    });
-    btnLevels.forEach(button => {
-        button.addEventListener('click', () => {
-            const selectedLevel = parseInt(button.innerText);
-            if (selectedLevel === 1) {
-                levelOverlay.style.display = 'none';
-                startGame(selectedLevel);
-            } else {
-                alert("Bạn yêu cầu làm Level 1 nên game hiện tại chỉ hoạt động ở Level 1 nhé!");
-            }
-        });
-    });
-    btnPause.addEventListener('click', () => {
-        if(!isGameOver && startOverlay.style.display === 'none' && levelOverlay.style.display === 'none') {
-            if(isPaused) {
-                isPaused = false;
-                timerId = setInterval(moveDown, currentSpeed);
-                btnPause.innerText = "Tạm Dừng";
-            } else {
-                isPaused = true;
-                clearInterval(timerId);
-                btnPause.innerText = "Tiếp Tục";
-            }
-        }
-    });
-    btnRestart.addEventListener('click', () => {
-        startOverlay.style.display = 'flex';
-        levelOverlay.style.display = 'none';
-        clearInterval(timerId);
-        playArea.innerHTML = '';
-        scoreElement.innerHTML = '0';
-    });
+    levelChoices.appendChild(button);
+}
+document.getElementById("start").addEventListener("click", () => {
+    overlay.style.display = "flex";
+    levelChoices.style.display = "grid";
+    message.textContent = "CHỌN CẤP ĐỘ";
+    document.getElementById("next").hidden = true;
+    document.getElementById("replay").hidden = true;
+    document.getElementById("choose").hidden = true;
 });
+document.getElementById("pause").addEventListener("click", () => {
+    if (!running) return;
+    paused = !paused;
+    document.getElementById("pause").textContent =
+        paused ? "Tiếp tục" : "Tạm dừng";
+});
+document.getElementById("replay").addEventListener("click", () => {
+    startGame(level);
+});
+document.getElementById("next").addEventListener("click", () => {
+    if (level < 10) {
+        startGame(level + 1);
+    }
+});
+document.getElementById("choose").addEventListener("click", () => {
+    running = false;
+    clearInterval(timer);
+    overlay.style.display = "flex";
+    levelChoices.style.display = "grid";
+    message.textContent = "CHỌN CẤP ĐỘ";
+    document.getElementById("next").hidden = true;
+    document.getElementById("replay").hidden = true;
+    document.getElementById("choose").hidden = true;
+});
+document.addEventListener("keydown", event => {
+    if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp"].includes(event.key)) {
+        event.preventDefault();
+    }
+    if (event.key === "ArrowLeft") move(-1, 0);
+    if (event.key === "ArrowRight") move(1, 0);
+    if (event.key === "ArrowDown") move(0, 1);
+    if (event.key === "ArrowUp") rotate();
+});
+initGame();
+overlay.style.display = "flex";
+levelChoices.style.display = "grid";
+message.textContent = "CHỌN CẤP ĐỘ";
+document.getElementById("next").hidden = true;
+document.getElementById("replay").hidden = true;
+document.getElementById("choose").hidden = true;

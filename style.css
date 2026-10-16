@@ -112,3 +112,11 @@ button {
     white-space: nowrap;
     pointer-events: none;
 }
+.fog-effect {
+    position: absolute;
+    inset: 0;
+    background: #111;
+    display: none;
+    z-index: 2;
+    pointer-events: none;
+}

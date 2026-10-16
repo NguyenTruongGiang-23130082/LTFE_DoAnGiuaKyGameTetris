@@ -17,6 +17,8 @@ let level = 1;
 let lines = 0;
 let timer = null;
 let windTimer = null;
+let fogTimer = null;
+let fogHideTimer = null;
 let paused = false;
 let running = false;
 const shapes = [
@@ -189,6 +191,22 @@ function startWind() {
         }, 5000);
     }
 }
+function startFog() {
+    clearInterval(fogTimer);
+    clearTimeout(fogHideTimer);
+    const fogEffect = document.getElementById("fogEffect");
+    fogEffect.style.display = "none";
+    if (level === 4) {
+        fogTimer = setInterval(() => {
+            if (running && !paused) {
+                fogEffect.style.display = "block";
+                fogHideTimer = setTimeout(() => {
+                    fogEffect.style.display = "none";
+                }, 2000);
+            }
+        }, 5000);
+    }
+}
 function startGame(selectedLevel, resetScore = false) {
     clearInterval(timer);
     clearInterval(windTimer);
@@ -208,12 +226,16 @@ function startGame(selectedLevel, resetScore = false) {
     if (running) {
         startTimer();
         startWind();
+        startFog();
     }
 }
 function completeLevel() {
     running = false;
     clearInterval(timer);
     clearInterval(windTimer);
+    clearInterval(fogTimer);
+    clearTimeout(fogHideTimer);
+    document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "BẠN ĐÃ THẮNG MÀN " + level + "!";
@@ -228,6 +250,9 @@ function endGame() {
     running = false;
     clearInterval(timer);
     clearInterval(windTimer);
+    clearInterval(fogTimer);
+    clearTimeout(fogHideTimer);
+    document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "GAME OVER";

@@ -16,6 +16,7 @@ let score = 0;
 let level = 1;
 let lines = 0;
 let timer = null;
+let windTimer = null;
 let paused = false;
 let running = false;
 const shapes = [
@@ -174,8 +175,23 @@ function startTimer() {
         move(0, 1);
     }, 800);
 }
+function startWind() {
+    clearInterval(windTimer);
+    const windMessage = document.getElementById("windMessage");
+    windMessage.textContent = "";
+    if (level === 3) {
+        windTimer = setInterval(() => {
+            if (running && !paused) {
+                const direction = Math.random() < 0.5 ? -1 : 1;
+                windMessage.textContent = direction === 1 ? "GIÓ THỔI SANG PHẢI" : "GIÓ THỔI SANG TRÁI";
+                move(direction, 0);
+            }
+        }, 5000);
+    }
+}
 function startGame(selectedLevel, resetScore = false) {
     clearInterval(timer);
+    clearInterval(windTimer);
     if (resetScore) score = 0;
     level = selectedLevel;
     lines = 0;
@@ -189,11 +205,15 @@ function startGame(selectedLevel, resetScore = false) {
     initObstacles();
     initPiece();
     render();
-    if (running) startTimer();
+    if (running) {
+        startTimer();
+        startWind();
+    }
 }
 function completeLevel() {
     running = false;
     clearInterval(timer);
+    clearInterval(windTimer);
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "BẠN ĐÃ THẮNG MÀN " + level + "!";
@@ -207,6 +227,7 @@ function completeLevel() {
 function endGame() {
     running = false;
     clearInterval(timer);
+    clearInterval(windTimer);
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "GAME OVER";

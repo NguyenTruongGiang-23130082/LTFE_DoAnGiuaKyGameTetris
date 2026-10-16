@@ -100,3 +100,15 @@ button {
     background: #555 !important;
     border: 2px solid #ff4444;
 }
+.wind-message {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    color: #8be9fd;
+    font-size: 14px;
+    font-weight: bold;
+    white-space: nowrap;
+    pointer-events: none;
+}

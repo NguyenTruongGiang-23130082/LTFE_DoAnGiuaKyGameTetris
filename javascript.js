@@ -7,6 +7,9 @@ const linesText = document.getElementById("lines");
 const overlay = document.getElementById("overlay");
 const message = document.getElementById("message");
 const levelChoices = document.getElementById("levelChoices");
+const LEVEL6_DURATION = 180000;
+let level6CountdownTimer = null;
+let level6EndTime = 0;
 let obstacles = [];
 let board = [];
 let piece = [];
@@ -20,6 +23,9 @@ let windTimer = null;
 let fogTimer = null;
 let fogHideTimer = null;
 let garbageTimer = null;
+let vanishingTimer = null;
+let pauseStartedAt = 0;
+const VANISH_TIME = 30000;
 let paused = false;
 let running = false;
 const shapes = [
@@ -74,10 +80,19 @@ function render() {
         for (let x = 0; x < col; x++) {
             const td = document.getElementById("cell_" + y + "_" + x);
             td.className = "cell";
-            if (board[y][x] === "#") {
+            const block = board[y][x];
+            if (block === "#") {
                 td.classList.add("obstacle");
-            } else if (board[y][x] !== "") {
-                td.classList.add(board[y][x]);
+            } else if (block !== "") {
+                if (typeof block === "object") {
+                    td.classList.add(block.type);
+                    if (level === 6 &&
+                        Date.now() - block.createdAt >= VANISH_TIME - 5000) {
+                        td.classList.add("vanishing-soon");
+                    }
+                } else {
+                    td.classList.add(block);
+                }
             }
         }
     }
@@ -121,12 +136,20 @@ function move(dx, dy) {
     }
 }
 function lockPiece() {
+    const now = Date.now();
     for (const cell of piece) {
         if (cell.y < 0) {
             endGame();
             return;
         }
-        board[cell.y][cell.x] = shapes[shapeIndex].name;
+        if (level === 6) {
+            board[cell.y][cell.x] = {
+                type: shapes[shapeIndex].name,
+                createdAt: now
+            };
+        } else {
+            board[cell.y][cell.x] = shapes[shapeIndex].name;
+        }
     }
     clearLines();
     if (!running) return;
@@ -237,15 +260,47 @@ function startGarbageTimer() {
         }, 30000);
     }
 }
+function updateLevel6Countdown() {
+    if (!running || paused || level !== 6) return;
+    const timeLeft = Math.max(0, level6EndTime - Date.now());
+    const seconds = Math.ceil(timeLeft / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    document.getElementById("level6Time").textContent =
+        String(minutes).padStart(2, "0") + ":" +
+        String(remainingSeconds).padStart(2, "0");
+    if (timeLeft <= 0) {
+        if (lines >= 10) {
+            completeLevel();
+        } else {
+            endGame();
+            message.textContent = "HẾT 3 PHÚT! BẠN ĐÃ THUA!";
+        }
+    }
+}
+function startLevel6Countdown() {
+    clearInterval(level6CountdownTimer);
+    document.getElementById("level6TimeBox").hidden = level !== 6;
+    if (level !== 6) return;
+    level6EndTime = Date.now() + LEVEL6_DURATION;
+    updateLevel6Countdown();
+    level6CountdownTimer = setInterval(() => {
+        updateLevel6Countdown();
+    }, 200);
+}
 function startGame(selectedLevel, resetScore = false) {
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(garbageTimer);
+    clearInterval(vanishingTimer);
+    clearInterval(level6CountdownTimer);
     if (resetScore) score = 0;
     level = selectedLevel;
     lines = 0;
     running = true;
     paused = false;
+    pauseStartedAt = 0;
+    document.getElementById("pause").textContent = "Tạm dừng";
     scoreText.textContent = score;
     levelText.textContent = level;
     linesText.textContent = lines;
@@ -259,7 +314,57 @@ function startGame(selectedLevel, resetScore = false) {
         startWind();
         startFog();
         startGarbageTimer();
+        startVanishingTimer();
+        startLevel6Countdown();
     }
+}
+function applyVanishingGravity() {
+    if (level !== 6) return;
+    const activeCells = new Set(
+        piece.map(cell => `${cell.y},${cell.x}`)
+    );
+    for (let x = 0; x < col; x++) {
+        let targetY = row - 1;
+        for (let y = row - 1; y >= 0; y--) {
+            if (activeCells.has(`${y},${x}`)) {
+                targetY = y - 1;
+                continue;
+            }
+            const block = board[y][x];
+            if (block === "") continue;
+            if (targetY !== y) {
+                board[targetY][x] = block;
+                board[y][x] = "";
+            }
+            targetY--;
+        }
+    }
+}
+function startVanishingTimer() {
+    clearInterval(vanishingTimer);
+    if (level !== 6) return;
+    vanishingTimer = setInterval(() => {
+        if (!running || paused) return;
+        const now = Date.now();
+        let hasVanished = false;
+        for (let y = 0; y < row; y++) {
+            for (let x = 0; x < col; x++) {
+                const block = board[y][x];
+                if (block && typeof block === "object" &&
+                    now - block.createdAt >= VANISH_TIME) {
+                    board[y][x] = "";
+                    hasVanished = true;
+                }
+            }
+        }
+        if (hasVanished) {
+            applyVanishingGravity();
+            clearLines();
+        }
+        if (running) {
+            render();
+        }
+    }, 200);
 }
 function completeLevel() {
     running = false;
@@ -268,6 +373,8 @@ function completeLevel() {
     clearInterval(fogTimer);
     clearTimeout(fogHideTimer);
     clearInterval(garbageTimer);
+    clearInterval(vanishingTimer);
+    clearInterval(level6CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
@@ -286,6 +393,8 @@ function endGame() {
     clearInterval(fogTimer);
     clearTimeout(fogHideTimer);
     clearInterval(garbageTimer);
+    clearInterval(vanishingTimer);
+    clearInterval(level6CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
@@ -313,6 +422,23 @@ document.getElementById("start").addEventListener("click", () => {
 document.getElementById("pause").addEventListener("click", () => {
     if (!running) return;
     paused = !paused;
+    if (level === 6) {
+        if (paused) {
+            pauseStartedAt = Date.now();
+        } else {
+            const pauseDuration = Date.now() - pauseStartedAt;
+            level6EndTime += pauseDuration;
+            for (const cells of board) {
+                for (const block of cells) {
+                    if (block && typeof block === "object") {
+                        block.createdAt += pauseDuration;
+                    }
+                }
+            }
+            updateLevel6Countdown();
+            render();
+        }
+    }
     document.getElementById("pause").textContent =
         paused ? "Tiếp tục" : "Tạm dừng";
 });

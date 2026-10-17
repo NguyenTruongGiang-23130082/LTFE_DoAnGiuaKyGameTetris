@@ -19,6 +19,7 @@ let timer = null;
 let windTimer = null;
 let fogTimer = null;
 let fogHideTimer = null;
+let garbageTimer = null;
 let paused = false;
 let running = false;
 const shapes = [
@@ -73,7 +74,9 @@ function render() {
         for (let x = 0; x < col; x++) {
             const td = document.getElementById("cell_" + y + "_" + x);
             td.className = "cell";
-            if (board[y][x] !== "") {
+            if (board[y][x] === "#") {
+                td.classList.add("obstacle");
+            } else if (board[y][x] !== "") {
                 td.classList.add(board[y][x]);
             }
         }
@@ -131,6 +134,23 @@ function lockPiece() {
     if (running) {
         render();
     }
+}
+function addGarbageRow() {
+    if (!running || paused || level !== 5) return;
+    if (board[0].some(cell => cell !== "")) {
+        endGame();
+        return;
+    }
+    board.shift();
+    const garbageRow = Array(col).fill("#");
+    const hole = Math.floor(Math.random() * col);
+    garbageRow[hole] = "";
+    board.push(garbageRow);
+    if (!canMove(0, 0, piece)) {
+        endGame();
+        return;
+    }
+    render();
 }
 function clearLines() {
     let cleared = 0;
@@ -207,9 +227,20 @@ function startFog() {
         }, 5000);
     }
 }
+function startGarbageTimer() {
+    clearInterval(garbageTimer);
+    if (level === 5) {
+        garbageTimer = setInterval(() => {
+            if (running && !paused) {
+                addGarbageRow();
+            }
+        }, 30000);
+    }
+}
 function startGame(selectedLevel, resetScore = false) {
     clearInterval(timer);
     clearInterval(windTimer);
+    clearInterval(garbageTimer);
     if (resetScore) score = 0;
     level = selectedLevel;
     lines = 0;
@@ -227,6 +258,7 @@ function startGame(selectedLevel, resetScore = false) {
         startTimer();
         startWind();
         startFog();
+        startGarbageTimer();
     }
 }
 function completeLevel() {
@@ -235,6 +267,7 @@ function completeLevel() {
     clearInterval(windTimer);
     clearInterval(fogTimer);
     clearTimeout(fogHideTimer);
+    clearInterval(garbageTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
@@ -252,6 +285,7 @@ function endGame() {
     clearInterval(windTimer);
     clearInterval(fogTimer);
     clearTimeout(fogHideTimer);
+    clearInterval(garbageTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";

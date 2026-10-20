@@ -24,6 +24,13 @@ let fogTimer = null;
 let fogHideTimer = null;
 let garbageTimer = null;
 let vanishingTimer = null;
+let freezeTimer = null;
+let freezeElapsed = 0;
+let freezeRemaining = 0;
+let freezeLastTick = 0;
+let frozenZone = null;
+const FREEZE_INTERVAL = 10000;
+const FREEZE_DURATION = 5000;
 let pauseStartedAt = 0;
 const VANISH_TIME = 30000;
 let paused = false;
@@ -86,6 +93,9 @@ function render() {
             } else if (block !== "") {
                 if (typeof block === "object") {
                     td.classList.add(block.type);
+                    if (level === 7 && block.frozen) {
+                        td.classList.add("frozen-block");
+                    }
                     if (level === 6 &&
                         Date.now() - block.createdAt >= VANISH_TIME - 5000) {
                         td.classList.add("vanishing-soon");
@@ -111,6 +121,13 @@ function render() {
         );
         td.classList.add("obstacle");
         td.textContent = "";
+    }
+    if (level === 7 && frozenZone) {
+        for (let y = frozenZone.y; y < frozenZone.y + 3; y++) {
+            for (let x = frozenZone.x; x < frozenZone.x + 3; x++) {
+                document.getElementById(`cell_${y}_${x}`).classList.add("frozen-zone");
+            }
+        }
     }
 }
 function canMove(dx, dy, newPiece = piece) {
@@ -147,6 +164,11 @@ function lockPiece() {
                 type: shapes[shapeIndex].name,
                 createdAt: now
             };
+        } else if (isFrozenPosition(cell.x, cell.y)) {
+            board[cell.y][cell.x] = {
+                type: shapes[shapeIndex].name,
+                frozen: true
+            };
         } else {
             board[cell.y][cell.x] = shapes[shapeIndex].name;
         }
@@ -178,7 +200,8 @@ function addGarbageRow() {
 function clearLines() {
     let cleared = 0;
     for (let y = row - 1; y >= 0; y--) {
-        if (board[y].every(cell => cell !== "")) {
+        const hasFrozenBlock = level === 7 && board[y].some(cell => cell && typeof cell === "object" && cell.frozen);
+        if (!hasFrozenBlock && board[y].every(cell => cell !== "")) {
             board.splice(y, 1);
             board.unshift(Array(col).fill(""));
             obstacles.forEach(obstacle => {
@@ -278,6 +301,96 @@ function updateLevel6Countdown() {
         }
     }
 }
+function isFrozenPosition(x, y) {
+    return level === 7 && frozenZone !== null && x >= frozenZone.x && x < frozenZone.x + 3 && y >= frozenZone.y && y < frozenZone.y + 3;
+}
+function freezeZone() {
+    const occupied = [];
+    for (let y = 0; y < row; y++) {
+        for (let x = 0; x < col; x++) {
+            if (board[y][x] !== "") {
+                occupied.push({ x, y });
+            }
+        }
+    }
+    const anchor = occupied.length
+        ? occupied[Math.floor(Math.random() * occupied.length)] : {
+            x: Math.floor(Math.random() * col),
+            y: Math.floor(Math.random() * row)
+        };
+    const x = Math.max(0, Math.min(col - 3, anchor.x - Math.floor(Math.random() * 3)));
+    const y = Math.max(0, Math.min(row - 3, anchor.y - Math.floor(Math.random() * 3)));
+    frozenZone = { x, y };
+    freezeRemaining = FREEZE_DURATION;
+    for (let i = y; i < y + 3; i++) {
+        for (let j = x; j < x + 3; j++) {
+            const block = board[i][j];
+            if (block !== "") {
+                board[i][j] = {
+                    type: typeof block === "object" ? block.type : block,
+                    frozen: true
+                };
+            }
+        }
+    }
+    render();
+}
+function unfreezeBlocks() {
+    for (let y = 0; y < row; y++) {
+        for (let x = 0; x < col; x++) {
+            const block = board[y][x];
+            if (block && typeof block === "object" && block.frozen) {
+                board[y][x] = block.type;
+            }
+        }
+    }
+}
+function thawZone() {
+    unfreezeBlocks();
+    frozenZone = null;
+    freezeRemaining = 0;
+    clearLines();
+    if (!running) return;
+    if (!canMove(0, 0, piece)) {
+        endGame();
+        return;
+    }
+    render();
+}
+function stopFrozenTimer() {
+    clearInterval(freezeTimer);
+    freezeTimer = null;
+    freezeElapsed = 0;
+    freezeRemaining = 0;
+    frozenZone = null;
+    unfreezeBlocks();
+}
+function startFrozenTimer() {
+    stopFrozenTimer();
+    if (level !== 7) return;
+    freezeLastTick = Date.now();
+    freezeTimer = setInterval(() => {
+        const now = Date.now();
+        if (!running || paused || level !== 7) {
+            freezeLastTick = now;
+            return;
+        }
+        const delta = now - freezeLastTick;
+        freezeLastTick = now;
+        freezeElapsed += delta;
+        if (frozenZone) {
+            freezeRemaining -= delta;
+            if (freezeRemaining <= 0) {
+                thawZone();
+            }
+        }
+        if (!running) return;
+        if (freezeElapsed >= FREEZE_INTERVAL) {
+            freezeElapsed %= FREEZE_INTERVAL;
+            freezeZone();
+        }
+    }, 100);
+}
 function startLevel6Countdown() {
     clearInterval(level6CountdownTimer);
     document.getElementById("level6TimeBox").hidden = level !== 6;
@@ -289,6 +402,7 @@ function startLevel6Countdown() {
     }, 200);
 }
 function startGame(selectedLevel, resetScore = false) {
+    stopFrozenTimer();
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(garbageTimer);
@@ -316,6 +430,7 @@ function startGame(selectedLevel, resetScore = false) {
         startGarbageTimer();
         startVanishingTimer();
         startLevel6Countdown();
+        startFrozenTimer();
     }
 }
 function applyVanishingGravity() {
@@ -368,6 +483,7 @@ function startVanishingTimer() {
 }
 function completeLevel() {
     running = false;
+    stopFrozenTimer();
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(fogTimer);
@@ -388,6 +504,7 @@ function completeLevel() {
 }
 function endGame() {
     running = false;
+    stopFrozenTimer();
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(fogTimer);

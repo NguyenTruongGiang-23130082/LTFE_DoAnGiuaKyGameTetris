@@ -8,6 +8,12 @@ const overlay = document.getElementById("overlay");
 const message = document.getElementById("message");
 const levelChoices = document.getElementById("levelChoices");
 const LEVEL6_DURATION = 180000;
+const PORTAL_INTERVAL = 15000;
+let portals = null;
+let portalTimer = null;
+let portalElapsed = 0;
+let portalLastTick = 0;
+let portalCooldown = false;
 let level6CountdownTimer = null;
 let level6EndTime = 0;
 let obstacles = [];
@@ -74,6 +80,7 @@ function initObstacles() {
 function initPiece() {
     shapeIndex = Math.floor(Math.random() * shapes.length);
     rotation = 0;
+    portalCooldown = false;
     piece = shapes[shapeIndex].cells.map(([x, y]) => ({
         x: x+3 ,
         y: y
@@ -129,6 +136,10 @@ function render() {
             }
         }
     }
+    if (level === 8 && portals) {
+        document.getElementById(`cell_${portals.a.y}_${portals.a.x}`).classList.add("portal-a");
+        document.getElementById(`cell_${portals.b.y}_${portals.b.x}`).classList.add("portal-b");
+    }
 }
 function canMove(dx, dy, newPiece = piece) {
     return newPiece.every(cell => {
@@ -136,8 +147,7 @@ function canMove(dx, dy, newPiece = piece) {
         const y = cell.y + dy;
         return x >= 0 && x < col &&
             y >= 0 && y < row &&
-            !board[y][x] &&
-            !obstacles.some(o => o.x === x && o.y === y);
+            !board[y][x] && !obstacles.some(o => o.x === x && o.y === y) && !isFrozenPosition(x, y);
     });
 }
 function move(dx, dy) {
@@ -147,6 +157,7 @@ function move(dx, dy) {
             x: cell.x + dx,
             y: cell.y + dy
         }));
+        tryTeleport();
         render();
     } else if (dy === 1) {
         lockPiece();
@@ -177,6 +188,9 @@ function lockPiece() {
     if (!running) return;
     initPiece();
     if (running) {
+        if (level === 8 && portals && (board[portals.a.y][portals.a.x] !== "" || board[portals.b.y][portals.b.x] !== "")) {
+            placePortals();
+        }
         render();
     }
 }
@@ -234,6 +248,7 @@ function rotate() {
     if (canMove(0, 0, rotated)) {
         piece = rotated;
         rotation++;
+        tryTeleport();
         render();
     }
 }
@@ -282,6 +297,75 @@ function startGarbageTimer() {
             }
         }, 30000);
     }
+}
+function placePortals() {
+    if (level !== 8 || !running) return;
+    const available = [];
+    for (let y = 3; y <= row - 4; y++) {
+        for (let x = 1; x < col - 1; x++) {
+            if (board[y][x] === "" && !piece.some(cell => cell.x === x && cell.y === y)) {
+                available.push({ x, y });
+            }
+        }
+    }
+    if (available.length < 2) return;
+    const moved = available.filter(cell => !portals || ![portals.a, portals.b].some(old => old.x === cell.x && old.y === cell.y));
+    const positions = moved.length >= 2 ? moved : available;
+    const a = positions[Math.floor(Math.random() * positions.length)];
+    const farEnough = positions.filter(cell => Math.abs(cell.x - a.x) + Math.abs(cell.y - a.y) >= 5);
+    if (!farEnough.length) return;
+    const b = farEnough[Math.floor(Math.random() * farEnough.length)];
+    portals = { a, b };
+    portalCooldown = false;
+    render();
+}
+function tryTeleport() {
+    if (level !== 8 || !portals || !running) return;
+    const atA = piece.find(cell => cell.x === portals.a.x && cell.y === portals.a.y);
+    const atB = piece.find(cell => cell.x === portals.b.x && cell.y === portals.b.y);
+    if (!atA && !atB) {
+        portalCooldown = false;
+        return;
+    }
+    if (portalCooldown) return;
+    const from = atA ? portals.a : portals.b;
+    const to = atA ? portals.b : portals.a;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const destination = piece.map(cell => ({
+        x: cell.x + dx,
+        y: cell.y + dy
+    }));
+    if (canMove(0, 0, destination)) {
+        piece = destination;
+        portalCooldown = true;
+    }
+}
+function stopPortalTimer() {
+    clearInterval(portalTimer);
+    portalTimer = null;
+    portalElapsed = 0;
+    portals = null;
+    portalCooldown = false;
+}
+function startPortalTimer() {
+    stopPortalTimer();
+    if (level !== 8) return;
+    placePortals();
+    portalLastTick = Date.now();
+    portalTimer = setInterval(() => {
+        const now = Date.now();
+        if (!running || paused || level !== 8) {
+            portalLastTick = now;
+            return;
+        }
+        portalElapsed += now - portalLastTick;
+        portalLastTick = now;
+        if (portalElapsed >= PORTAL_INTERVAL) {
+            portalElapsed %= PORTAL_INTERVAL;
+            placePortals();
+        }
+    }, 100);
 }
 function updateLevel6Countdown() {
     if (!running || paused || level !== 6) return;
@@ -408,6 +492,7 @@ function startGame(selectedLevel, resetScore = false) {
     clearInterval(garbageTimer);
     clearInterval(vanishingTimer);
     clearInterval(level6CountdownTimer);
+    stopPortalTimer();
     if (resetScore) score = 0;
     level = selectedLevel;
     lines = 0;
@@ -431,6 +516,7 @@ function startGame(selectedLevel, resetScore = false) {
         startVanishingTimer();
         startLevel6Countdown();
         startFrozenTimer();
+        startPortalTimer();
     }
 }
 function applyVanishingGravity() {
@@ -484,6 +570,7 @@ function startVanishingTimer() {
 function completeLevel() {
     running = false;
     stopFrozenTimer();
+    stopPortalTimer();
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(fogTimer);
@@ -495,7 +582,7 @@ function completeLevel() {
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "BẠN ĐÃ THẮNG MÀN " + level + "!";
-    document.getElementById("next").hidden = level >= 10;
+    document.getElementById("next").hidden = level >= 8;
     document.getElementById("replay").hidden = false;
     document.getElementById("choose").hidden = false;
     document.getElementById("next").textContent = "Màn tiếp theo";
@@ -505,6 +592,7 @@ function completeLevel() {
 function endGame() {
     running = false;
     stopFrozenTimer();
+    stopPortalTimer();
     clearInterval(timer);
     clearInterval(windTimer);
     clearInterval(fogTimer);
@@ -520,7 +608,7 @@ function endGame() {
     document.getElementById("replay").hidden = false;
     document.getElementById("choose").hidden = false;
 }
-for (let i = 1; i <= 10; i++) {
+for (let i = 1; i <= 8; i++) {
     const button = document.createElement("button");
     button.textContent = i;
     button.addEventListener("click", () => {
@@ -563,12 +651,14 @@ document.getElementById("replay").addEventListener("click", () => {
     startGame(level);
 });
 document.getElementById("next").addEventListener("click", () => {
-    if (level < 10) {
+    if (level < 8) {
         startGame(level + 1);
     }
 });
 document.getElementById("choose").addEventListener("click", () => {
     running = false;
+    stopPortalTimer();
+    stopFrozenTimer();
     clearInterval(timer);
     overlay.style.display = "flex";
     levelChoices.style.display = "grid";

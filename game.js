@@ -1,6 +1,6 @@
 const col = 10;
 const row = 20;
-const javascript = document.getElementById("game");
+const game = document.getElementById("game");
 const scoreText = document.getElementById("score");
 const levelText = document.getElementById("level");
 const linesText = document.getElementById("lines");
@@ -89,7 +89,7 @@ const shapes = [
     { name: "Z", cells: [[0,0],[1,0],[1,1],[2,1]] }
 ];
 function initGame() {
-    javascript.innerHTML = "";
+    game.innerHTML = "";
     board = [];
     for (let i = 0; i < row; i++) {
         const tr = document.createElement("tr");
@@ -101,7 +101,7 @@ function initGame() {
             tr.appendChild(td);
             board[i][j] = "";
         }
-        javascript.appendChild(tr);
+        game.appendChild(tr);
     }
 }
 function initObstacles() {

@@ -25,7 +25,7 @@
             color: white;
         }
         .sidebar {
-            width: 170px;
+            width: 210px;
         }
         .sidebar h1 {
             color: #ffcc00;
@@ -43,6 +43,21 @@
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        .guide-text {
+            background: #3a3a3a;
+            padding: 10px 8px;
+            border-left: 3px solid #00c9a7;
+            font-size: 13px;
+            white-space: nowrap;
+            margin-bottom: 20px;
+        }
+        .guide-text a {
+            color: #00c9a7;
+            text-decoration: underline;
+        }
+        .guide-text a:hover {
+            color: #00c9e8;
         }
         .board {
             position: relative;
@@ -204,6 +219,9 @@
 <div class="game">
     <div class="sidebar">
         <h1>TETRIS</h1>
+        <p class="guide-text">
+            Hướng dẫn sử dụng: <a href="https://docs.google.com/document/d/1FUEbEZ0pslH1okl8Tg7KdlUoHvGLZIqA/edit?usp=sharing&ouid=110259276426987547345&rtpof=true&sd=true">Tại đây</a>
+        </p>
         <p>Điểm: <span id="score">0</span></p>
         <p>Cấp độ: <span id="level">1</span></p>
         <p>Số hàng: <span id="lines">0</span> / 10</p>

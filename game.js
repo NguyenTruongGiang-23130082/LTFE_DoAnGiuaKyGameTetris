@@ -57,6 +57,7 @@ let level8EndTime = 0;
 let obstacles = [];
 let board = [];
 let piece = [];
+let nextBlockId = 0;
 let shapeIndex = 0;
 let rotation = 0;
 let score = 0;
@@ -198,6 +199,7 @@ function move(dx, dy) {
 }
 function lockPiece() {
     const now = Date.now();
+    const groupId = ++nextBlockId;
     for (const cell of piece) {
         if (cell.y < 0) {
             endGame();
@@ -206,7 +208,8 @@ function lockPiece() {
         if (level === 8) {
             board[cell.y][cell.x] = {
                 type: shapes[shapeIndex].name,
-                createdAt: now
+                createdAt: now,
+                groupId: groupId
             };
         } else if (isFrozenPosition(cell.x, cell.y)) {
             board[cell.y][cell.x] = {
@@ -574,6 +577,7 @@ function startGame(selectedLevel, resetScore = false) {
     if (resetScore) score = 0;
     level = selectedLevel;
     lines = 0;
+    nextBlockId = 0;
     running = true;
     paused = false;
     pauseStartedAt = 0;
@@ -602,25 +606,40 @@ function startGame(selectedLevel, resetScore = false) {
 }
 function applyVanishingGravity() {
     if (level !== 8) return;
-    const activeCells = new Set(
-        piece.map(cell => `${cell.y},${cell.x}`)
-    );
-    for (let x = 0; x < col; x++) {
-        let targetY = row - 1;
+    const activeCells = new Set(piece.map(cell => `${cell.x},${cell.y}`));
+    let moved;
+    do {
+        moved = false;
+        const groups = new Map();
         for (let y = row - 1; y >= 0; y--) {
-            if (activeCells.has(`${y},${x}`)) {
-                targetY = y - 1;
-                continue;
+            for (let x = 0; x < col; x++) {
+                const block = board[y][x];
+                if (!block || typeof block !== "object") continue;
+                if (!groups.has(block.groupId)) {
+                    groups.set(block.groupId, []);
+                }
+                groups.get(block.groupId).push({ x, y, block });
             }
-            const block = board[y][x];
-            if (block === "") continue;
-            if (targetY !== y) {
-                board[targetY][x] = block;
-                board[y][x] = "";
-            }
-            targetY--;
         }
-    }
+        for (const cells of groups.values()) {
+            const id = cells[0].block.groupId;
+            const canFall = cells.every(({ x, y }) => {
+                if (y + 1 >= row || activeCells.has(`${x},${y + 1}`)) {
+                    return false;
+                }
+                const below = board[y + 1][x];
+                return below === "" || below?.groupId === id;
+            });
+            if (!canFall) continue;
+            for (const cell of cells) {
+                board[cell.y][cell.x] = "";
+            }
+            for (const cell of cells) {
+                board[cell.y + 1][cell.x] = cell.block;
+            }
+            moved = true;
+        }
+    } while (moved);
 }
 function startVanishingTimer() {
     clearInterval(vanishingTimer);

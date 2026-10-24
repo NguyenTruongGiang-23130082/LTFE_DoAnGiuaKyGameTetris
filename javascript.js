@@ -1,12 +1,50 @@
 const col = 10;
 const row = 20;
-const game = document.getElementById("game");
+const javascript = document.getElementById("game");
 const scoreText = document.getElementById("score");
 const levelText = document.getElementById("level");
 const linesText = document.getElementById("lines");
 const overlay = document.getElementById("overlay");
 const message = document.getElementById("message");
 const levelChoices = document.getElementById("levelChoices");
+const levelIntro = document.getElementById("levelIntro");
+const levelDescription = document.getElementById("levelDescription");
+const levelInfo = {
+    1: {
+        name: "CƠ BẢN",
+        description: "Xếp các khối gạch và xóa đủ 10 hàng để thắng."
+    },
+    2: {
+        name: "CHƯỚNG NGẠI",
+        description: "Có 4 ô cản ở phía dưới. Hãy xếp gạch khéo léo để vượt qua."
+    },
+    3: {
+        name: "GIÓ THỔI",
+        description: "Cứ 5 giây, gió sẽ đẩy khối sang trái hoặc phải."
+    },
+    4: {
+        name: "SƯƠNG MÙ",
+        description: "Cứ 5 giây, bảng chơi sẽ bị che trong 2 giây."
+    },
+    5: {
+        name: "HÀNG RÁC",
+        description: "Cứ 30 giây, một hàng rác sẽ xuất hiện từ dưới lên."
+    },
+    6: {
+        name: "GẠCH BIẾN MẤT",
+        description: "Gạch tự biến mất sau 30 giây. Xóa 10 hàng trong 3 phút!"
+    },
+    7: {
+        name: "ĐÓNG BĂNG",
+        description: "Cứ 10 giây, một vùng 3×3 sẽ đóng băng trong 5 giây."
+    },
+    8: {
+        name: "CỔNG DỊCH CHUYỂN",
+        description: "Chạm cổng A/B để dịch chuyển. Hai cổng đổi vị trí mỗi 15 giây."
+    }
+};
+let pendingLevel = 1;
+let pendingResetScore = false;
 const LEVEL6_DURATION = 180000;
 const PORTAL_INTERVAL = 15000;
 let portals = null;
@@ -51,7 +89,7 @@ const shapes = [
     { name: "Z", cells: [[0,0],[1,0],[1,1],[2,1]] }
 ];
 function initGame() {
-    game.innerHTML = "";
+    javascript.innerHTML = "";
     board = [];
     for (let i = 0; i < row; i++) {
         const tr = document.createElement("tr");
@@ -63,7 +101,7 @@ function initGame() {
             tr.appendChild(td);
             board[i][j] = "";
         }
-        game.appendChild(tr);
+        javascript.appendChild(tr);
     }
 }
 function initObstacles() {
@@ -103,8 +141,7 @@ function render() {
                     if (level === 7 && block.frozen) {
                         td.classList.add("frozen-block");
                     }
-                    if (level === 6 &&
-                        Date.now() - block.createdAt >= VANISH_TIME - 5000) {
+                    if (level === 6 && Date.now() - block.createdAt >= VANISH_TIME - 5000) {
                         td.classList.add("vanishing-soon");
                     }
                 } else {
@@ -116,16 +153,12 @@ function render() {
     for (const cell of piece) {
         if (cell.y >= 0 && cell.y < row &&
             cell.x >= 0 && cell.x < col) {
-            const td = document.getElementById(
-                "cell_" + cell.y + "_" + cell.x
-            );
+            const td = document.getElementById("cell_" + cell.y + "_" + cell.x);
             td.classList.add(shapes[shapeIndex].name);
         }
     }
     for (const obstacle of obstacles) {
-        const td = document.getElementById(
-            "cell_" + obstacle.y + "_" + obstacle.x
-        );
+        const td = document.getElementById("cell_" + obstacle.y + "_" + obstacle.x);
         td.classList.add("obstacle");
         td.textContent = "";
     }
@@ -485,6 +518,47 @@ function startLevel6Countdown() {
         updateLevel6Countdown();
     }, 200);
 }
+function stopGameForMenu() {
+    running = false;
+    paused = false;
+    stopFrozenTimer();
+    stopPortalTimer();
+    clearInterval(timer);
+    clearInterval(windTimer);
+    clearInterval(fogTimer);
+    clearTimeout(fogHideTimer);
+    clearInterval(garbageTimer);
+    clearInterval(vanishingTimer);
+    clearInterval(level6CountdownTimer);
+    document.getElementById("fogEffect").style.display = "none";
+    document.getElementById("windMessage").textContent = "";
+    document.getElementById("pause").textContent = "Tạm dừng";
+}
+function showLevelSelection() {
+    stopGameForMenu();
+    overlay.style.display = "flex";
+    message.textContent = "CHỌN CẤP ĐỘ";
+    levelIntro.hidden = true;
+    levelChoices.style.display = "grid";
+    document.getElementById("next").hidden = true;
+    document.getElementById("replay").hidden = true;
+    document.getElementById("choose").hidden = true;
+    document.getElementById("level6TimeBox").hidden = true;
+}
+function showLevelIntro(selectedLevel, resetScore = false) {
+    stopGameForMenu();
+    pendingLevel = selectedLevel;
+    pendingResetScore = resetScore;
+    message.textContent = `MÀN ${selectedLevel}: ${levelInfo[selectedLevel].name}`;
+    levelDescription.textContent = levelInfo[selectedLevel].description;
+    levelIntro.hidden = false;
+    levelChoices.style.display = "none";
+    document.getElementById("next").hidden = true;
+    document.getElementById("replay").hidden = true;
+    document.getElementById("choose").hidden = false;
+    document.getElementById("level6TimeBox").hidden = true;
+    overlay.style.display = "flex";
+}
 function startGame(selectedLevel, resetScore = false) {
     stopFrozenTimer();
     clearInterval(timer);
@@ -504,6 +578,7 @@ function startGame(selectedLevel, resetScore = false) {
     levelText.textContent = level;
     linesText.textContent = lines;
     overlay.style.display = "none";
+    levelIntro.hidden = true;
     initGame();
     initObstacles();
     initPiece();
@@ -612,10 +687,14 @@ for (let i = 1; i <= 8; i++) {
     const button = document.createElement("button");
     button.textContent = i;
     button.addEventListener("click", () => {
-        startGame(i, true);
+        showLevelIntro(i, true);
     });
     levelChoices.appendChild(button);
 }
+document.getElementById("start").addEventListener("click", showLevelSelection);
+document.getElementById("playLevel").addEventListener("click", () => {
+    startGame(pendingLevel, pendingResetScore);
+});
 document.getElementById("start").addEventListener("click", () => {
     overlay.style.display = "flex";
     levelChoices.style.display = "grid";
@@ -648,25 +727,14 @@ document.getElementById("pause").addEventListener("click", () => {
         paused ? "Tiếp tục" : "Tạm dừng";
 });
 document.getElementById("replay").addEventListener("click", () => {
-    startGame(level);
+    showLevelIntro(level);
 });
 document.getElementById("next").addEventListener("click", () => {
     if (level < 8) {
-        startGame(level + 1);
+        showLevelIntro(level + 1);
     }
 });
-document.getElementById("choose").addEventListener("click", () => {
-    running = false;
-    stopPortalTimer();
-    stopFrozenTimer();
-    clearInterval(timer);
-    overlay.style.display = "flex";
-    levelChoices.style.display = "grid";
-    message.textContent = "CHỌN CẤP ĐỘ";
-    document.getElementById("next").hidden = true;
-    document.getElementById("replay").hidden = true;
-    document.getElementById("choose").hidden = true;
-});
+document.getElementById("choose").addEventListener("click", showLevelSelection);
 document.addEventListener("keydown", event => {
     if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp"].includes(event.key)) {
         event.preventDefault();
@@ -677,9 +745,4 @@ document.addEventListener("keydown", event => {
     if (event.key === "ArrowUp") rotate();
 });
 initGame();
-overlay.style.display = "flex";
-levelChoices.style.display = "grid";
-message.textContent = "CHỌN CẤP ĐỘ";
-document.getElementById("next").hidden = true;
-document.getElementById("replay").hidden = true;
-document.getElementById("choose").hidden = true;
+showLevelSelection();

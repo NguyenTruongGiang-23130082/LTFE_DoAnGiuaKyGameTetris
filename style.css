@@ -154,3 +154,32 @@ button {
 .cell.portal-b::after {
     content: "B";
 }
+.overlay h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    line-height: 1.3;
+}
+.level-intro {
+    width: 100%;
+    max-width: 240px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.level-intro p {
+    margin: 0;
+    color: #e2e2e2;
+    font-size: 15px;
+    line-height: 1.5;
+}
+.level-intro button {
+    max-width: 180px;
+    margin: 4px 0 0;
+    border-radius: 6px;
+}
+.overlay #choose {
+    background: #424242;
+    color: white;
+    border-radius: 6px;
+}

@@ -533,6 +533,7 @@ function stopGameForMenu() {
     document.getElementById("fogEffect").style.display = "none";
     document.getElementById("windMessage").textContent = "";
     document.getElementById("pause").textContent = "Tạm dừng";
+    document.getElementById("start").textContent = "Bắt đầu";
 }
 function showLevelSelection() {
     stopGameForMenu();
@@ -540,6 +541,7 @@ function showLevelSelection() {
     message.textContent = "CHỌN CẤP ĐỘ";
     levelIntro.hidden = true;
     levelChoices.style.display = "grid";
+    message.classList.remove("win-message");
     document.getElementById("next").hidden = true;
     document.getElementById("replay").hidden = true;
     document.getElementById("choose").hidden = true;
@@ -549,7 +551,8 @@ function showLevelIntro(selectedLevel, resetScore = false) {
     stopGameForMenu();
     pendingLevel = selectedLevel;
     pendingResetScore = resetScore;
-    message.textContent = `MÀN ${selectedLevel}: ${levelInfo[selectedLevel].name}`;
+    message.textContent = `CẤP ĐỘ ${selectedLevel}: ${levelInfo[selectedLevel].name}`;
+    message.classList.remove("win-message");
     levelDescription.textContent = levelInfo[selectedLevel].description;
     levelIntro.hidden = false;
     levelChoices.style.display = "none";
@@ -573,6 +576,7 @@ function startGame(selectedLevel, resetScore = false) {
     running = true;
     paused = false;
     pauseStartedAt = 0;
+    document.getElementById("start").textContent = "Chọn cấp độ";
     document.getElementById("pause").textContent = "Tạm dừng";
     scoreText.textContent = score;
     levelText.textContent = level;
@@ -656,13 +660,14 @@ function completeLevel() {
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
-    message.textContent = "BẠN ĐÃ THẮNG MÀN " + level + "!";
+    message.textContent = "BẠN ĐÃ THẮNG CẤP ĐỘ " + level + "!";
+    message.classList.add("win-message");
     document.getElementById("next").hidden = level >= 8;
     document.getElementById("replay").hidden = false;
     document.getElementById("choose").hidden = false;
-    document.getElementById("next").textContent = "Màn tiếp theo";
-    document.getElementById("replay").textContent = "Chơi lại màn này";
-    document.getElementById("choose").textContent = "Chọn màn";
+    document.getElementById("next").textContent = "Cấp độ tiếp theo";
+    document.getElementById("replay").textContent = "Chơi lại cấp độ này";
+    document.getElementById("choose").textContent = "Chọn cấp độ";
 }
 function endGame() {
     running = false;
@@ -676,6 +681,7 @@ function endGame() {
     clearInterval(vanishingTimer);
     clearInterval(level8CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
+    message.classList.remove("win-message");
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
     message.textContent = "GAME OVER";

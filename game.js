@@ -15,45 +15,45 @@ const levelInfo = {
         description: "Xếp các khối gạch và xóa đủ 10 hàng để thắng."
     },
     2: {
-        name: "CHƯỚNG NGẠI",
-        description: "Có 4 ô cản ở phía dưới. Hãy xếp gạch khéo léo để vượt qua."
-    },
-    3: {
         name: "GIÓ THỔI",
         description: "Cứ 5 giây, gió sẽ đẩy khối sang trái hoặc phải."
+    },
+    3: {
+        name: "HÀNG RÁC",
+        description: "Cứ 30 giây, một hàng rác sẽ xuất hiện từ dưới lên."
     },
     4: {
         name: "SƯƠNG MÙ",
         description: "Cứ 5 giây, bảng chơi sẽ bị che trong 2 giây."
     },
     5: {
-        name: "HÀNG RÁC",
-        description: "Cứ 30 giây, một hàng rác sẽ xuất hiện từ dưới lên."
+        name: "CHƯỚNG NGẠI",
+        description: "Có 4 ô cản ở phía dưới. Hãy xếp gạch khéo léo để vượt qua."
     },
     6: {
-        name: "GẠCH BIẾN MẤT",
-        description: "Gạch tự biến mất sau 30 giây. Xóa 10 hàng trong 3 phút!"
-    },
-    7: {
         name: "ĐÓNG BĂNG",
         description: "Cứ 10 giây, một vùng 3×3 sẽ đóng băng trong 5 giây."
     },
-    8: {
+    7: {
         name: "CỔNG DỊCH CHUYỂN",
         description: "Chạm cổng A/B để dịch chuyển. Hai cổng đổi vị trí mỗi 15 giây."
+    },
+    8: {
+        name: "GẠCH BIẾN MẤT",
+        description: "Gạch tự biến mất sau 30 giây. Xóa 10 hàng trong 5 phút!"
     }
 };
 let pendingLevel = 1;
 let pendingResetScore = false;
-const LEVEL6_DURATION = 180000;
+const LEVEL8_DURATION = 300000;
 const PORTAL_INTERVAL = 15000;
 let portals = null;
 let portalTimer = null;
 let portalElapsed = 0;
 let portalLastTick = 0;
 let portalCooldown = false;
-let level6CountdownTimer = null;
-let level6EndTime = 0;
+let level8CountdownTimer = null;
+let level8EndTime = 0;
 let obstacles = [];
 let board = [];
 let piece = [];
@@ -106,7 +106,7 @@ function initGame() {
 }
 function initObstacles() {
     obstacles = [];
-    if (level !== 2) return;
+    if (level !== 5) return;
     while (obstacles.length < 4) {
         const x = Math.floor(Math.random() * col);
         const y = Math.floor(Math.random() * 6) + 14;
@@ -138,10 +138,10 @@ function render() {
             } else if (block !== "") {
                 if (typeof block === "object") {
                     td.classList.add(block.type);
-                    if (level === 7 && block.frozen) {
+                    if (level === 6 && block.frozen) {
                         td.classList.add("frozen-block");
                     }
-                    if (level === 6 && Date.now() - block.createdAt >= VANISH_TIME - 5000) {
+                    if (level === 8 && Date.now() - block.createdAt >= VANISH_TIME - 5000) {
                         td.classList.add("vanishing-soon");
                     }
                 } else {
@@ -162,14 +162,14 @@ function render() {
         td.classList.add("obstacle");
         td.textContent = "";
     }
-    if (level === 7 && frozenZone) {
+    if (level === 6 && frozenZone) {
         for (let y = frozenZone.y; y < frozenZone.y + 3; y++) {
             for (let x = frozenZone.x; x < frozenZone.x + 3; x++) {
                 document.getElementById(`cell_${y}_${x}`).classList.add("frozen-zone");
             }
         }
     }
-    if (level === 8 && portals) {
+    if (level === 7 && portals) {
         document.getElementById(`cell_${portals.a.y}_${portals.a.x}`).classList.add("portal-a");
         document.getElementById(`cell_${portals.b.y}_${portals.b.x}`).classList.add("portal-b");
     }
@@ -203,7 +203,7 @@ function lockPiece() {
             endGame();
             return;
         }
-        if (level === 6) {
+        if (level === 8) {
             board[cell.y][cell.x] = {
                 type: shapes[shapeIndex].name,
                 createdAt: now
@@ -221,14 +221,14 @@ function lockPiece() {
     if (!running) return;
     initPiece();
     if (running) {
-        if (level === 8 && portals && (board[portals.a.y][portals.a.x] !== "" || board[portals.b.y][portals.b.x] !== "")) {
+        if (level === 7 && portals && (board[portals.a.y][portals.a.x] !== "" || board[portals.b.y][portals.b.x] !== "")) {
             placePortals();
         }
         render();
     }
 }
 function addGarbageRow() {
-    if (!running || paused || level !== 5) return;
+    if (!running || paused || level !== 3) return;
     if (board[0].some(cell => cell !== "")) {
         endGame();
         return;
@@ -247,7 +247,7 @@ function addGarbageRow() {
 function clearLines() {
     let cleared = 0;
     for (let y = row - 1; y >= 0; y--) {
-        const hasFrozenBlock = level === 7 && board[y].some(cell => cell && typeof cell === "object" && cell.frozen);
+        const hasFrozenBlock = level === 6 && board[y].some(cell => cell && typeof cell === "object" && cell.frozen);
         if (!hasFrozenBlock && board[y].every(cell => cell !== "")) {
             board.splice(y, 1);
             board.unshift(Array(col).fill(""));
@@ -295,7 +295,7 @@ function startWind() {
     clearInterval(windTimer);
     const windMessage = document.getElementById("windMessage");
     windMessage.textContent = "";
-    if (level === 3) {
+    if (level === 2) {
         windTimer = setInterval(() => {
             if (running && !paused) {
                 const direction = Math.random() < 0.5 ? -1 : 1;
@@ -323,7 +323,7 @@ function startFog() {
 }
 function startGarbageTimer() {
     clearInterval(garbageTimer);
-    if (level === 5) {
+    if (level === 3) {
         garbageTimer = setInterval(() => {
             if (running && !paused) {
                 addGarbageRow();
@@ -332,7 +332,7 @@ function startGarbageTimer() {
     }
 }
 function placePortals() {
-    if (level !== 8 || !running) return;
+    if (level !== 7 || !running) return;
     const available = [];
     for (let y = 3; y <= row - 4; y++) {
         for (let x = 1; x < col - 1; x++) {
@@ -353,7 +353,7 @@ function placePortals() {
     render();
 }
 function tryTeleport() {
-    if (level !== 8 || !portals || !running) return;
+    if (level !== 7 || !portals || !running) return;
     const atA = piece.find(cell => cell.x === portals.a.x && cell.y === portals.a.y);
     const atB = piece.find(cell => cell.x === portals.b.x && cell.y === portals.b.y);
     if (!atA && !atB) {
@@ -383,12 +383,12 @@ function stopPortalTimer() {
 }
 function startPortalTimer() {
     stopPortalTimer();
-    if (level !== 8) return;
+    if (level !== 7) return;
     placePortals();
     portalLastTick = Date.now();
     portalTimer = setInterval(() => {
         const now = Date.now();
-        if (!running || paused || level !== 8) {
+        if (!running || paused || level !== 7) {
             portalLastTick = now;
             return;
         }
@@ -400,13 +400,13 @@ function startPortalTimer() {
         }
     }, 100);
 }
-function updateLevel6Countdown() {
-    if (!running || paused || level !== 6) return;
-    const timeLeft = Math.max(0, level6EndTime - Date.now());
+function updateLevel8Countdown() {
+    if (!running || paused || level !== 8) return;
+    const timeLeft = Math.max(0, level8EndTime - Date.now());
     const seconds = Math.ceil(timeLeft / 1000);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    document.getElementById("level6Time").textContent =
+    document.getElementById("level8Time").textContent =
         String(minutes).padStart(2, "0") + ":" +
         String(remainingSeconds).padStart(2, "0");
     if (timeLeft <= 0) {
@@ -414,12 +414,12 @@ function updateLevel6Countdown() {
             completeLevel();
         } else {
             endGame();
-            message.textContent = "HẾT 3 PHÚT! BẠN ĐÃ THUA!";
+            message.textContent = "HẾT 5 PHÚT! BẠN ĐÃ THUA!";
         }
     }
 }
 function isFrozenPosition(x, y) {
-    return level === 7 && frozenZone !== null && x >= frozenZone.x && x < frozenZone.x + 3 && y >= frozenZone.y && y < frozenZone.y + 3;
+    return level === 6 && frozenZone !== null && x >= frozenZone.x && x < frozenZone.x + 3 && y >= frozenZone.y && y < frozenZone.y + 3;
 }
 function freezeZone() {
     const occupied = [];
@@ -484,11 +484,11 @@ function stopFrozenTimer() {
 }
 function startFrozenTimer() {
     stopFrozenTimer();
-    if (level !== 7) return;
+    if (level !== 6) return;
     freezeLastTick = Date.now();
     freezeTimer = setInterval(() => {
         const now = Date.now();
-        if (!running || paused || level !== 7) {
+        if (!running || paused || level !== 6) {
             freezeLastTick = now;
             return;
         }
@@ -508,14 +508,14 @@ function startFrozenTimer() {
         }
     }, 100);
 }
-function startLevel6Countdown() {
-    clearInterval(level6CountdownTimer);
-    document.getElementById("level6TimeBox").hidden = level !== 6;
-    if (level !== 6) return;
-    level6EndTime = Date.now() + LEVEL6_DURATION;
-    updateLevel6Countdown();
-    level6CountdownTimer = setInterval(() => {
-        updateLevel6Countdown();
+function startLevel8Countdown() {
+    clearInterval(level8CountdownTimer);
+    document.getElementById("level8TimeBox").hidden = level !== 8;
+    if (level !== 8) return;
+    level8EndTime = Date.now() + LEVEL8_DURATION;
+    updateLevel8Countdown();
+    level8CountdownTimer = setInterval(() => {
+        updateLevel8Countdown();
     }, 200);
 }
 function stopGameForMenu() {
@@ -529,7 +529,7 @@ function stopGameForMenu() {
     clearTimeout(fogHideTimer);
     clearInterval(garbageTimer);
     clearInterval(vanishingTimer);
-    clearInterval(level6CountdownTimer);
+    clearInterval(level8CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
     document.getElementById("windMessage").textContent = "";
     document.getElementById("pause").textContent = "Tạm dừng";
@@ -543,7 +543,7 @@ function showLevelSelection() {
     document.getElementById("next").hidden = true;
     document.getElementById("replay").hidden = true;
     document.getElementById("choose").hidden = true;
-    document.getElementById("level6TimeBox").hidden = true;
+    document.getElementById("level8TimeBox").hidden = true;
 }
 function showLevelIntro(selectedLevel, resetScore = false) {
     stopGameForMenu();
@@ -556,7 +556,7 @@ function showLevelIntro(selectedLevel, resetScore = false) {
     document.getElementById("next").hidden = true;
     document.getElementById("replay").hidden = true;
     document.getElementById("choose").hidden = false;
-    document.getElementById("level6TimeBox").hidden = true;
+    document.getElementById("level8TimeBox").hidden = true;
     overlay.style.display = "flex";
 }
 function startGame(selectedLevel, resetScore = false) {
@@ -565,7 +565,7 @@ function startGame(selectedLevel, resetScore = false) {
     clearInterval(windTimer);
     clearInterval(garbageTimer);
     clearInterval(vanishingTimer);
-    clearInterval(level6CountdownTimer);
+    clearInterval(level8CountdownTimer);
     stopPortalTimer();
     if (resetScore) score = 0;
     level = selectedLevel;
@@ -589,13 +589,13 @@ function startGame(selectedLevel, resetScore = false) {
         startFog();
         startGarbageTimer();
         startVanishingTimer();
-        startLevel6Countdown();
+        startLevel8Countdown();
         startFrozenTimer();
         startPortalTimer();
     }
 }
 function applyVanishingGravity() {
-    if (level !== 6) return;
+    if (level !== 8) return;
     const activeCells = new Set(
         piece.map(cell => `${cell.y},${cell.x}`)
     );
@@ -618,7 +618,7 @@ function applyVanishingGravity() {
 }
 function startVanishingTimer() {
     clearInterval(vanishingTimer);
-    if (level !== 6) return;
+    if (level !== 8) return;
     vanishingTimer = setInterval(() => {
         if (!running || paused) return;
         const now = Date.now();
@@ -652,7 +652,7 @@ function completeLevel() {
     clearTimeout(fogHideTimer);
     clearInterval(garbageTimer);
     clearInterval(vanishingTimer);
-    clearInterval(level6CountdownTimer);
+    clearInterval(level8CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
@@ -674,7 +674,7 @@ function endGame() {
     clearTimeout(fogHideTimer);
     clearInterval(garbageTimer);
     clearInterval(vanishingTimer);
-    clearInterval(level6CountdownTimer);
+    clearInterval(level8CountdownTimer);
     document.getElementById("fogEffect").style.display = "none";
     overlay.style.display = "flex";
     levelChoices.style.display = "none";
@@ -706,12 +706,12 @@ document.getElementById("start").addEventListener("click", () => {
 document.getElementById("pause").addEventListener("click", () => {
     if (!running) return;
     paused = !paused;
-    if (level === 6) {
+    if (level === 8) {
         if (paused) {
             pauseStartedAt = Date.now();
         } else {
             const pauseDuration = Date.now() - pauseStartedAt;
-            level6EndTime += pauseDuration;
+            level8EndTime += pauseDuration;
             for (const cells of board) {
                 for (const block of cells) {
                     if (block && typeof block === "object") {
@@ -719,7 +719,7 @@ document.getElementById("pause").addEventListener("click", () => {
                     }
                 }
             }
-            updateLevel6Countdown();
+            updateLevel8Countdown();
             render();
         }
     }

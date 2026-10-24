@@ -40,6 +40,10 @@
             background: #00c9a7;
             font-weight: bold;
         }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .board {
             position: relative;
         }
@@ -208,6 +212,7 @@
         </p>
         <button id="start">Bắt đầu</button>
         <button id="pause">Tạm dừng</button>
+        <button id="restart" disabled>Chơi lại</button>
         <p>← → : Di chuyển</p>
         <p>↑ : Xoay khối</p>
         <p>↓ : Rơi nhanh</p>

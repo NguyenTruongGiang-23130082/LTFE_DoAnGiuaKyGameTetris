@@ -277,9 +277,10 @@ function rotate() {
     if (!running || paused || shapeIndex === 3) return;
     const minX = Math.min(...piece.map(cell => cell.x));
     const minY = Math.min(...piece.map(cell => cell.y));
+    const width = Math.max(...piece.map(cell => cell.x)) - minX + 1;
     const rotated = piece.map(cell => ({
         x: minX + (cell.y - minY),
-        y: minY + (minX + 2 - cell.x)
+        y: minY + width - 1 - (cell.x - minX)
     }));
     if (canMove(0, 0, rotated)) {
         piece = rotated;

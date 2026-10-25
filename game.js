@@ -236,15 +236,25 @@ function addGarbageRow() {
         endGame();
         return;
     }
-    board.shift();
+    const newBoard = board.slice(1);
     const garbageRow = Array(col).fill("#");
     const hole = Math.floor(Math.random() * col);
     garbageRow[hole] = "";
-    board.push(garbageRow);
-    if (!canMove(0, 0, piece)) {
-        endGame();
-        return;
+    newBoard.push(garbageRow);
+    let newPiece = piece;
+    const overlapping = piece.some(cell => newBoard[cell.y][cell.x] !== "");
+    if (overlapping) {
+        if (piece.some(cell => cell.y === 0)) {
+            endGame();
+            return;
+        }
+        newPiece = piece.map(cell => ({
+            x: cell.x,
+            y: cell.y - 1
+        }));
     }
+    board = newBoard;
+    piece = newPiece;
     render();
 }
 function clearLines() {

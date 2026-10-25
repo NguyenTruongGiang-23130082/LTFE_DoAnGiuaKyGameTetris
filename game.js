@@ -32,7 +32,7 @@ const levelInfo = {
     },
     6: {
         name: "ĐÓNG BĂNG",
-        description: "Cứ 10 giây, một vùng 3×3 sẽ đóng băng trong 5 giây."
+        description: "Cứ 10 giây, một vùng 3×3 sẽ đóng băng trong 5 giây. Khối gạch đang rơi có thể bị cố định ngay khi gặp vùng đóng băng."
     },
     7: {
         name: "CỔNG DỊCH CHUYỂN",
@@ -771,11 +771,11 @@ document.getElementById("restart").addEventListener("click", () => {
     startGame(level, true);
 });
 document.getElementById("replay").addEventListener("click", () => {
-    showLevelIntro(level);
+    showLevelIntro(level,true);
 });
 document.getElementById("next").addEventListener("click", () => {
     if (level < 8) {
-        showLevelIntro(level + 1);
+        showLevelIntro(level + 1, true);
     }
 });
 document.getElementById("choose").addEventListener("click", showLevelSelection);
